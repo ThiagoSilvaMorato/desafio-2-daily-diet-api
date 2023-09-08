@@ -64,7 +64,8 @@ export function mealRoutes(app: FastifyInstance) {
           hour,
           isInDiet,
         })
-        .where("id", id);
+        .where("id", id)
+        .where("userId", userId);
 
       return reply.status(201).send();
     }
@@ -80,9 +81,41 @@ export function mealRoutes(app: FastifyInstance) {
 
       const { id } = deleteMealBodySchema.parse(request.body);
 
-      await knex("meal").delete().where("id", id);
+      const { userId } = request.cookies;
+
+      await knex("meal").delete().where("id", id).where("userId", userId);
 
       return reply.status(200);
     }
   );
+
+  app.get(
+    "/user/:userId",
+    { preHandler: [checkSessionIdExists, authenticatedUser] },
+    async (request) => {
+      const getMealByUserParamsSchema = z.object({
+        userId: z.string().uuid(),
+      });
+
+      const { userId } = getMealByUserParamsSchema.parse(request.params);
+
+      const mealArr = await knex("meal").select().where("userId", userId);
+
+      return { mealArr };
+    }
+  );
+
+  app.get("/:id", { preHandler: [checkSessionIdExists, authenticatedUser] }, async (request) => {
+    const getMealByIdParamsSchema = z.object({
+      id: z.string().uuid(),
+    });
+
+    const { id } = getMealByIdParamsSchema.parse(request.params);
+
+    const { userId } = request.cookies;
+
+    const mealById = await knex("meal").select().where("id", id).where("userId", userId);
+
+    return { mealById };
+  });
 }
